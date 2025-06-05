@@ -1,6 +1,7 @@
 import { pullCommits } from "~/lib/github";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { z } from "zod";
+import { indexGitHubRepo } from "~/lib/github-loader";
 
 export const projectRouter = createTRPCRouter({
     createProject: protectedProcedure.input(
@@ -23,6 +24,7 @@ export const projectRouter = createTRPCRouter({
                 }
             }
         })
+        await indexGitHubRepo(project.id, input.githubUrl, input.githubToken)
         await pullCommits(project.id);
         return project;
     }),
@@ -52,5 +54,42 @@ export const projectRouter = createTRPCRouter({
             }
         })
         return commits;
+    }),
+    saveAnswer: protectedProcedure.input(
+        z.object({
+            projectId: z.string(),
+            question: z.string(),
+            answer: z.string(),
+            filesReferences: z.any()
+        })
+    ).mutation(async ({ctx, input}) => {
+        const answer = await ctx.db.question.create({
+            data: {
+                answer: input.answer,
+                projectId: input.projectId,
+                question: input.question,
+                userId: ctx.user.userId!,
+                fileReferences: input.filesReferences
+            }
+        })
+        return answer;
+    }),
+    getQuestions: protectedProcedure.input(
+        z.object({
+            projectId: z.string()
+        })
+    ).query(async ({ctx, input}) => {
+        const questions = await ctx.db.question.findMany({
+            where: {
+                projectId: input.projectId
+            },
+            include: {
+                user: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        })
+        return questions;
     })
 });

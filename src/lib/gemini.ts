@@ -1,27 +1,25 @@
-import {GoogleGenerativeAI} from "@google/generative-ai";
-import {Document} from "@langchain/core/documents";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Document } from "@langchain/core/documents";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({model: "gemini-2.0-flash-exp"});
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
 export const aiSummarizeCommit = async (diff: string) => {
-    const result = await model.generateContent([
-        `You are an expert programmer and software architect with in-depth knowledge of codebases, Git, software design principles, security, optimization, and common vulnerabilities. Your task is to analyze and summarize Git diffs.
+  const result = await model.generateContent([
+    `You are an expert programmer and software architect with in-depth knowledge of codebases, Git, software design principles, security, optimization, and common vulnerabilities. Your task is to analyze and summarize Git diffs.
 
 Always keep the following goals in mind:
 - Summarize what has changed at a high level.
 - Highlight refactorings, bug fixes, or new features.
 - Call out potential performance or security risks.
 - Be aware of vulnerable patterns being added or removed.
-- Point out edge cases or potentially risky logic changes.` + 
-
-        `\n\nUnderstanding Git Diff Format:
+- Point out edge cases or potentially risky logic changes.` +
+      `\n\nUnderstanding Git Diff Format:
 In a Git diff:
 - Lines starting with \`-\` represent code that was **removed**.
 - Lines starting with \`+\` represent code that was **added**.
 - Unchanged lines are shown without a prefix and provide context.` +
-
-        `\n\nExample of a Git Diff:
+      `\n\nExample of a Git Diff:
 \`\`\`diff
 diff --git a/utils.js b/utils.js
 index 1a2b3c4..5d6e7f8 100644
@@ -58,29 +56,33 @@ When given a git diff, return a concise and professional summary like this:
 
 Now begin.
 `,
-        `Please summarize the following git diff: \n\n${diff}`
+    `Please summarize the following git diff: \n\n${diff}`,
+  ]);
+  return result.response.text();
+};
+
+export async function summarizeCode(doc: Document) {
+  console.log("getting summary doc", doc.metadata.source);
+  try {
+    const code = doc.pageContent.slice(0, 10000);
+    const result = await model.generateContent([
+      `You are an intelligent senior software engineer who specialises in oboarding junior software engineers onto projects` +
+        `You are onboarding a junior software engineer onto a project and explaining them the purpose of the ${doc.metadata.source} file` +
+        `Here is the source code: ----\n\n${code}\n\n----` +
+        `Please explain the purpose of the code in a concise and professional manner`,
     ]);
+
     return result.response.text();
+  } catch (error) {
+    console.error(error);
+    return "";
+  }
 }
 
+export async function generateEmbedding(summary: string) {
+  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const result = await model.embedContent(summary);
+  const embedding = result.embedding;
 
-export async function summarizeCode(doc: Document){
-        console.log('getting summary doc', doc.metadata.source);
-        const code = doc.pageContent.slice(0, 10000);
-        const result = await model.generateContent([
-                `You are an intelligent senior software engineer who specialises in oboarding junior software engineers onto projects` +
-                `You are onboarding a junior software engineer onto a project and explaining them the purpose of the ${doc.metadata.source} file` +
-                `Here is the source code: ----\n\n${code}\n\n----` +
-                `Please explain the purpose of the code in a concise and professional manner`
-        ]);
-
-        return result.response.text();
-}
-
-export async function generateEmbedding(summary: string){
-        const model = genAI.getGenerativeModel({model: "text-embedding-004"});
-        const result = await model.embedContent(summary);
-        const embedding = result.embedding;
-
-        return embedding.values;
+  return embedding.values;
 }
