@@ -6,6 +6,7 @@ import { Input } from '~/components/ui/input';
 import { api } from '~/trpc/react';
 import { toast } from 'sonner';
 import useRefetch from '~/hooks/user-refetch';
+import axios from 'axios';
 
 
 type FormInput = {
@@ -19,14 +20,20 @@ const CreatePage = () =>{
     const createProject = api.project.createProject.useMutation(); 
     const refetch = useRefetch();
     
-    const onSubmit = (data: FormInput) => {
+    const onSubmit = async (data: FormInput) => {
         console.log(JSON.stringify(data));
         //window.alert(JSON.stringify(data));
+        const [owner, repo] = data.repoUrl.split("/").slice(-2);
+        const languages = await axios.get(`https://api.github.com/repos/${owner}/${repo}/languages`);
+
+        console.log(languages.data);
+        const language = Object.keys(languages.data)[0];
 
         createProject.mutate({
             name: data.projectName,
             githubUrl: data.repoUrl,
-            githubToken: data.githubToken
+            githubToken: data.githubToken,
+            language: language!
         }, {
             onSuccess: () => {
                 toast.success('Project created successfully');
